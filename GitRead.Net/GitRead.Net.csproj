@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <PackageId>GitRead.Net</PackageId>
     <PackageVersion>1.5.0</PackageVersion>
     <Description>.Net Standard library for reading objects in a Git repository</Description>

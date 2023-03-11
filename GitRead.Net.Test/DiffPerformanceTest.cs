@@ -3,15 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using GitRead.Net.Data;
-using NUnit.Framework;
+using Xunit;
 using static GitRead.Net.RepositoryAnalyzer;
 
 namespace GitRead.Net.Test
 {
-    [TestFixture]
     public class DiffPerformanceTest
     {
-        [Test]
+        [Fact]
         public void PerformanceTest()
         {
             int comparisons = 600;
@@ -20,7 +19,7 @@ namespace GitRead.Net.Test
             double total = 0;
             foreach (int repeat in Enumerable.Range(0, repeatCount))
             {
-                TestContext.Progress.Write(repeat);
+                //TestContext.Progress.Write(repeat);
                 Stopwatch watch = Stopwatch.StartNew();
                 for (int i = 0; i < comparisons; i++)
                 {
@@ -30,7 +29,7 @@ namespace GitRead.Net.Test
                 total += watch.ElapsedMilliseconds;
             }
             Console.WriteLine($"Average {total / repeatCount}ms");
-            TestContext.Progress.WriteLine($"Average {total / repeatCount}ms");
+            //TestContext.Progress.WriteLine($"Average {total / repeatCount}ms");
         }
 
         private void Prepare(int comparisons, out string[] content1, out string[] content2)
