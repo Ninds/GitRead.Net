@@ -43,7 +43,8 @@ namespace GitRead.Net
                     numberOfHashesToSkip = BitConverter.ToInt32(buffer, 0);
                 }
                 int endIndex = ReadInt32(fileStream);
-                byte[] hashBytes = HexStringToBytes(hash);
+                Span<byte> hashBytes = stackalloc byte[20];
+                HexStringToBytes(hash, hashBytes);
                 int indexForHash = BinarySearch(fileStream, hashBytes, numberOfHashesToSkip, endIndex);
                 if (indexForHash == -1)
                 {
@@ -75,43 +76,46 @@ namespace GitRead.Net
 
         private int ReadInt32(FileStream fileStream, int pos = -1)
         {
-            byte[] fourByteBuffer = new byte[4];
+            Span<byte> fourByteBuffer = stackalloc byte[4];
             if (pos != -1)
             {
                 fileStream.Seek(pos, SeekOrigin.Begin);
             }
-            fileStream.Read(fourByteBuffer, 0, 4);
-            Array.Reverse(fourByteBuffer);
-            return BitConverter.ToInt32(fourByteBuffer, 0);
+            fileStream.Read(fourByteBuffer);
+            MemoryExtensions.Reverse(fourByteBuffer);
+            return BitConverter.ToInt32(fourByteBuffer);
         }
 
         private long ReadInt64(FileStream fileStream, int pos)
         {
-            byte[] eightByteBuffer = new byte[8];
+            Span<byte> eightByteBuffer = stackalloc byte[8];
             fileStream.Seek(pos, SeekOrigin.Begin);
-            fileStream.Read(eightByteBuffer, 0, 8);
-            Array.Reverse(eightByteBuffer);
-            return BitConverter.ToInt64(eightByteBuffer, 0);
+            fileStream.Read(eightByteBuffer);
+            MemoryExtensions.Reverse(eightByteBuffer);
+            return BitConverter.ToInt64(eightByteBuffer);
         }
 
-        private byte[] HexStringToBytes(string str)
+        private void HexStringToBytes(string str, Span<byte> res)
         {
-            byte[] res = new byte[str.Length / 2];
             for (int i = 0; i < res.Length; i++)
             {
-                res[i] = Convert.ToByte(str.Substring(i * 2, 2), 16);
+                int ch_u = str[i<<1];
+                ch_u = (ch_u < 58 ? ch_u-48 : ( ch_u < 96 ? ch_u-55 : ch_u-87 ));
+                int ch_l = str[(i<<1)+1];
+                ch_l = (ch_l < 58 ? ch_l - 48 : (ch_l < 96 ? ch_l - 55 : ch_l - 87));
+                res[i] = (byte)((ch_u << 4) + ch_l);
+
             }
-            return res;
+           
         }
 
-        private int BinarySearch(FileStream fileStream, byte[] hash, int startIndex, int endIndex)
+        private int BinarySearch(FileStream fileStream, ReadOnlySpan<byte> hash, int startIndex, int endIndex)
         {
-            byte[] buffer = new byte[20];
+            Span<byte> buffer = stackalloc byte[20];
             int startOfHashes = 4 + 4 + (256 * 4);
             int toCheck = startIndex + 1 == endIndex ? startIndex : (startIndex + endIndex + 1) / 2;
             fileStream.Seek(startOfHashes + (toCheck * 20), SeekOrigin.Begin);
-            fileStream.Read(buffer, 0, 20);
-            string readHash = String.Concat(buffer.Select(x => x.ToString("X2")));
+            fileStream.Read(buffer);
             ComparisonResult comparison = Compare(hash, buffer);
             if (comparison == ComparisonResult.Equal)
             {
@@ -131,7 +135,7 @@ namespace GitRead.Net
             }
         }
 
-        private ComparisonResult Compare(byte[] a, byte[] b)
+        private ComparisonResult Compare(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
         {
             for (int i = 0; i < a.Length; i++)
             {
