@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace GitRead.Net.Data
 {
-    public class Commit
+    public struct Commit
     {
         private static readonly Regex AuthorRegex = new Regex(@"^(.*)<(.*)> (\d*) ([+|-]\d{4})$", RegexOptions.Compiled);
 

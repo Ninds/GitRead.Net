@@ -1,6 +1,6 @@
 ﻿namespace GitRead.Net.Data
 {
-    public class FileLineCount
+    public struct FileLineCount
     {
         public FileLineCount(string filePath, int lineCount)
         {

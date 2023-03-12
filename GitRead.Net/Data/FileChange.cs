@@ -1,6 +1,6 @@
 ﻿namespace GitRead.Net.Data
 {
-    public class FileChange
+    public struct FileChange
     {
         public FileChange(string path, int numberOfLinesAdded, int numberOfLinesDeleted)
         {

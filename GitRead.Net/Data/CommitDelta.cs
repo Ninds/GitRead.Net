@@ -2,7 +2,7 @@
 
 namespace GitRead.Net.Data
 {
-    public class CommitDelta
+    public struct CommitDelta
     {
         public CommitDelta(List<FileChange> added, List<FileChange> deleted, List<FileChange> modified)
         {
