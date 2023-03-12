@@ -105,16 +105,16 @@ namespace GitRead.Net
 
         private T ReadPackFile<T>(FileStream fileStream, string hash, long offset, Func<Stream, long, bool, T> extractFunc)
         {
-            byte[] lengthBuffer = new byte[1];
+            Span<byte> lengthBuffer = stackalloc byte[1];
             fileStream.Seek(offset, SeekOrigin.Begin);
-            fileStream.Read(lengthBuffer, 0, 1);            
+            fileStream.Read(lengthBuffer);            
             PackFileObjectType packFileObjectType = (PackFileObjectType)((lengthBuffer[0] & 0b0111_0000) >> 4);
             long length = lengthBuffer[0] & 0b0000_1111; //First four bits are dropped as they are they are readNextByte indicator and packFileObjectType
             int counter = 0;
             while ((lengthBuffer[0] & 0b1000_0000) != 0)
             {
                 counter++;
-                fileStream.Read(lengthBuffer, 0, 1);
+                fileStream.Read(lengthBuffer);
                 length = length + ((lengthBuffer[0] & 0b0111_1111) << (4 + (7 * (counter - 1)))); //First bit is dropped as it is the readNextByte indicator
             }
             switch (packFileObjectType)
@@ -231,14 +231,14 @@ namespace GitRead.Net
 
         private (int bytesRead, long length) ReadVariableLengthSize(Stream stream)
         {
-            byte[] buffer = new byte[1];
-            stream.Read(buffer, 0, 1);
+            Span<byte> buffer = stackalloc byte[1];
+            stream.Read(buffer);
             long result = buffer[0] & 0b0111_1111; //First bit is dropped as it is the readNextByte indicator
             int counter = 0;
             while ((buffer[0] & 0b1000_0000) != 0)
             {
                 counter++;
-                stream.Read(buffer, 0, 1);
+                stream.Read(buffer);
                 result = result + ((buffer[0] & 0b0111_1111) << (7 * counter)); //First bit is dropped as it is the readNextByte indicator
             }
             counter++;
@@ -286,11 +286,15 @@ namespace GitRead.Net
             {
                 string mode = ReadString(stream, whiteSpace);
                 string name = ReadString(stream, nullChar);
-                byte[] buffer = new byte[20];
-                stream.Read(buffer, 0, 20);
-                string itemHash = String.Concat(buffer.Select(x => x.ToString("X2")));
+                Span<byte> buffer = stackalloc byte[20];
+                stream.Read(buffer);
+
+                StringBuilder stringBuilder = new StringBuilder();
+                for(int i = 0; i< buffer.Length; i++) { stringBuilder.Append(buffer[i].ToString("X2")); }
+
+
                 length -= (mode.Length + 1 + name.Length + 1 + 20);
-                entries.Add(new TreeEntry(name, itemHash, mode));
+                entries.Add(new TreeEntry(name, stringBuilder.ToString(), mode));
             }
             return entries;
         }
@@ -414,16 +418,17 @@ namespace GitRead.Net
 
         private string ReadString(Stream stream, char delimiter)
         {
-            byte[] oneByteBuffer = new byte[1];
+            Span<byte> oneByteBuffer = stackalloc byte[1];
+            Span<char> oneCharBuffer = stackalloc char[1];
             StringBuilder builder = new StringBuilder();
-            stream.Read(oneByteBuffer, 0, 1);
-            char ch = Encoding.UTF8.GetChars(oneByteBuffer)[0];
-            while (ch != delimiter)
+            stream.Read(oneByteBuffer);
+            Encoding.UTF8.GetChars(oneByteBuffer,oneCharBuffer);
+            while (oneCharBuffer[0] != delimiter)
             {
-                builder.Append(ch);
-                stream.Read(oneByteBuffer, 0, 1);
-                ch = Encoding.UTF8.GetChars(oneByteBuffer)[0];
-            } while (ch != delimiter);
+                builder.Append(oneCharBuffer[0]);
+                stream.Read(oneByteBuffer);
+                Encoding.UTF8.GetChars(oneByteBuffer,oneCharBuffer);
+            } while (oneCharBuffer[0] != delimiter);
             return builder.ToString();
         }
         

@@ -15,16 +15,16 @@ namespace GitRead.Net
 
         internal long ReadIndex(string name, string hash)
         {
-            byte[] fourByteBuffer = new byte[4];
+            Span<byte> fourByteBuffer = stackalloc byte[4];
             using (FileStream fileStream = File.OpenRead(Path.Combine(repoPath, "objects", "pack", name + ".idx")))
             {
-                byte[] buffer = new byte[4];
-                fileStream.Read(buffer, 0, 4);
+                Span<byte> buffer = stackalloc byte[4];
+                fileStream.Read(buffer);
                 if (buffer[0] != 255 || buffer[1] != 116 || buffer[2] != 79 || buffer[3] != 99)
                 {
                     throw new Exception("Invalid index file");
                 }
-                fileStream.Read(buffer, 0, 4);
+                fileStream.Read(buffer);
                 if (buffer[0] != 0 || buffer[1] != 0 || buffer[2] != 0 || buffer[3] != 2)
                 {
                     throw new Exception("Invalid index file version");
@@ -38,9 +38,9 @@ namespace GitRead.Net
                 else
                 {
                     fileStream.Seek((fanoutIndex - 1) * 4, SeekOrigin.Current);
-                    fileStream.Read(buffer, 0, 4);
-                    Array.Reverse(buffer);
-                    numberOfHashesToSkip = BitConverter.ToInt32(buffer, 0);
+                    fileStream.Read(buffer);
+                    MemoryExtensions.Reverse(buffer);
+                    numberOfHashesToSkip = BitConverter.ToInt32(buffer);
                 }
                 int endIndex = ReadInt32(fileStream);
                 Span<byte> hashBytes = stackalloc byte[20];
@@ -54,19 +54,19 @@ namespace GitRead.Net
                 int totalNumberOfHashes = ReadInt32(fileStream, lastFanoutPos);
                 int indexInto4ByteOffsets = lastFanoutPos + 4 + (20 * totalNumberOfHashes) + (4 * totalNumberOfHashes) + (4 * indexForHash);
                 fileStream.Seek(indexInto4ByteOffsets, SeekOrigin.Begin);
-                fileStream.Read(fourByteBuffer, 0, 4);
+                fileStream.Read(fourByteBuffer);
                 bool use8ByteOffsets = (fourByteBuffer[0] & 0b1000_0000) != 0;
                 long offset;
                 if (!use8ByteOffsets)
                 {
-                    Array.Reverse(fourByteBuffer);
-                    offset = BitConverter.ToInt32(fourByteBuffer, 0);
+                    MemoryExtensions.Reverse(fourByteBuffer);
+                    offset = BitConverter.ToInt32(fourByteBuffer);
                 }
                 else
                 {
                     fourByteBuffer[3] = (byte)(fourByteBuffer[3] & 0b0111_1111);
-                    Array.Reverse(fourByteBuffer);
-                    int indexInto8ByteOffsets = BitConverter.ToInt32(fourByteBuffer, 0);
+                    MemoryExtensions.Reverse(fourByteBuffer);
+                    int indexInto8ByteOffsets = BitConverter.ToInt32(fourByteBuffer);
                     indexInto4ByteOffsets = lastFanoutPos + 4 + (20 * totalNumberOfHashes) + (4 * totalNumberOfHashes) + (4 * totalNumberOfHashes) + (4 * indexInto8ByteOffsets);
                     offset = ReadInt64(fileStream, indexInto4ByteOffsets);
                 }
