@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace GitRead.Net
 {
@@ -14,18 +15,16 @@ namespace GitRead.Net
             repositoryReader = new RepositoryReader(repoPath);
         }
 
-        public int GetTotalNumberOfCommits()
-        {
-            return GetCommits().Count();
-        }
+        public async Task<int> GetTotalNumberOfCommits() => (await GetCommits()).Count();
+        
 
         /// <summary>
         /// Returns the filepath for every file which exists in the repository as of the head.
         /// </summary>
-        public IEnumerable<string> GetFilePaths()
+        public async Task<IEnumerable<string>> GetFilePaths()
         {
-            string head = repositoryReader.ReadHead();
-            string commitHash = repositoryReader.ReadBranch(head);
+            string head = await repositoryReader.ReadHead();
+            string commitHash = await repositoryReader.ReadBranch(head);
             return GetFilePaths(commitHash);
         }
 
@@ -41,30 +40,34 @@ namespace GitRead.Net
         /// <summary>
         /// For every file which exists as of the head this method returns the filepath along with the number of lines in the file.
         /// </summary>
-        public IEnumerable<FileLineCount> GetFileLineCounts()
+        public async IAsyncEnumerable<FileLineCount> GetFileLineCounts()
         {
-            string head = repositoryReader.ReadHead();
-            string commitHash = repositoryReader.ReadBranch(head);
-            return GetFileLineCounts(commitHash);
+            string head = await repositoryReader.ReadHead();
+            string commitHash = await repositoryReader.ReadBranch(head);
+            await foreach(var x in GetFileLineCounts(commitHash))  yield return x;
         }
 
         /// <summary>
         /// For every file which exists as of a specific commit this method returns the filepath along with the number of lines in the file.
         /// </summary>
         /// <param name="commitHash">The hash of the commit to run for</param>
-        public IEnumerable<FileLineCount> GetFileLineCounts(string commitHash)
+        public async IAsyncEnumerable<FileLineCount> GetFileLineCounts(string commitHash)
         {
-            return GetPathAndHashForFiles(commitHash).Select(x => new FileLineCount(x.Path, GetLineCount(x.Hash, x.Mode)));
+            foreach (var x in GetPathAndHashForFiles(commitHash))
+            {
+                var co = await GetLineCount(x.Hash, x.Mode);
+                yield return new FileLineCount(x.Path, co);
+            }
         }
 
         /// <summary>
         /// Returns commits which modified the specified file ordered by most recent change through to the commit which created the file.
         /// </summary>
         /// <param name="filePath">The path to the file which you want to see the commit history of</param>
-        public IReadOnlyList<Commit> GetCommitsForOneFilePath(string filePath)
+        public async Task<IReadOnlyList<Commit>> GetCommitsForOneFilePath(string filePath)
         {
-            string head = repositoryReader.ReadHead();
-            string commitHash = repositoryReader.ReadBranch(head);
+            string head = await repositoryReader.ReadHead();
+            string commitHash = await repositoryReader.ReadBranch(head);
             return GetCommitsForOneFilePath(filePath, commitHash);
         }
 
@@ -99,23 +102,24 @@ namespace GitRead.Net
         /// <summary>
         /// Provides a list of commits which modified a file ordered by most recent for every file which exists as of the head.
         /// </summary>
-        public IReadOnlyDictionary<string, IReadOnlyList<Commit>> GetCommitsForAllFilePaths()
+        public async Task<IReadOnlyDictionary<string, IReadOnlyList<Commit>>> GetCommitsForAllFilePaths()
         {
-            string head = repositoryReader.ReadHead();
-            string commitHash = repositoryReader.ReadBranch(head);
-            return GetCommitsForAllFilePaths(commitHash);
+            string head = await repositoryReader.ReadHead();
+            string commitHash = await repositoryReader.ReadBranch(head);
+            return await GetCommitsForAllFilePaths(commitHash);
         }
 
         /// <summary>
         /// Provides a list of commits which modified a file ordered by most recent for every file which exists as of a specific commit.
         /// </summary>
         /// <param name="commitHash">The hash of the commit to run for</param>
-        public IReadOnlyDictionary<string, IReadOnlyList<Commit>> GetCommitsForAllFilePaths(string commitHash)
+        public async Task<IReadOnlyDictionary<string, IReadOnlyList<Commit>>> GetCommitsForAllFilePaths(string commitHash)
         {
             Dictionary<string, List<string>> contentHashesByPath = GetFilePaths(commitHash).ToDictionary(x => x, x=> new List<string>());
             Dictionary<string, Commit> earliestCommit = new Dictionary<string, Commit>();
             Dictionary<string, IReadOnlyList<TreeEntry>> treeCache = new Dictionary<string, IReadOnlyList<TreeEntry>>();
-            foreach (Commit commit in GetCommits())
+            var commits = await GetCommits();
+            foreach (Commit commit in commits)
             {
                 foreach (string filePath in contentHashesByPath.Keys)
                 {
@@ -145,7 +149,7 @@ namespace GitRead.Net
         /// For a specific commit this provides a list of files added, a list of files modified and a list of the files deleted by that commit.
         /// </summary>
         /// <param name="commitHash">The hash of the commit to run for</param>
-        public CommitDelta GetChanges(string commitHash)
+        public async Task<CommitDelta> GetChanges(string commitHash)
         {
             Commit commit = repositoryReader.ReadCommit(commitHash);
             List<FileChange> added = new List<FileChange>();
@@ -184,17 +188,17 @@ namespace GitRead.Net
                         if (before1.Mode != TreeEntryMode.RegularExecutableFile && before2.Mode != TreeEntryMode.RegularExecutableFile && now.Mode != TreeEntryMode.RegularExecutableFile)
                         {
                             (linesAdded, linesDeleted) =
-                                DiffGenerator.GetLinesChanged(repositoryReader.ReadBlob(before1.Hash), repositoryReader.ReadBlob(before2.Hash), repositoryReader.ReadBlob(now.Hash));
+                                DiffGenerator.GetLinesChanged(await repositoryReader.ReadBlob(before1.Hash), await repositoryReader.ReadBlob(before2.Hash), await repositoryReader.ReadBlob(now.Hash));
                         }
                         modified.Add(new FileChange(now.Path, linesAdded, linesDeleted));
                     }
                     else if ((existedInCommitBefore1 || existedInCommitBefore2) && !existedInCommitNow)
                     {
-                        deleted.Add(new FileChange(before1.Path, 0, GetLineCount(before1.Hash, before1.Mode)));
+                        deleted.Add(new FileChange(before1.Path, 0, await GetLineCount(before1.Hash, before1.Mode)));
                     }
                     else if (!existedInCommitBefore1 && !existedInCommitBefore2 && existedInCommitNow)
                     {
-                        added.Add(new FileChange(now.Path, GetLineCount(now.Hash, now.Mode), 0));
+                        added.Add(new FileChange(now.Path, await GetLineCount(now.Hash, now.Mode), 0));
                     }
                 }
                 else if (existedInCommitBefore1 && existedInCommitNow && before1.Hash != now.Hash)
@@ -203,17 +207,17 @@ namespace GitRead.Net
                     int linesDeleted = 0;
                     if (before1.Mode != TreeEntryMode.RegularExecutableFile && now.Mode != TreeEntryMode.RegularExecutableFile)
                     {
-                        (linesAdded, linesDeleted) = DiffGenerator.GetLinesChanged(repositoryReader.ReadBlob(before1.Hash), repositoryReader.ReadBlob(now.Hash));
+                        (linesAdded, linesDeleted) = DiffGenerator.GetLinesChanged(await repositoryReader.ReadBlob(before1.Hash), await repositoryReader.ReadBlob(now.Hash));
                     }
                     modified.Add(new FileChange(now.Path, linesAdded, linesDeleted));
                 }
                 else if (existedInCommitBefore1 && !existedInCommitNow)
                 {
-                    deleted.Add(new FileChange(before1.Path, 0, GetLineCount(before1.Hash, before1.Mode)));
+                    deleted.Add(new FileChange(before1.Path, 0, await GetLineCount(before1.Hash, before1.Mode)));
                 }
                 else if (!existedInCommitBefore1 && existedInCommitNow)
                 {
-                    added.Add(new FileChange(now.Path, GetLineCount(now.Hash, now.Mode), 0));
+                    added.Add(new FileChange(now.Path, await GetLineCount(now.Hash, now.Mode), 0));
                 }
             }
             return new CommitDelta(added, deleted, modified);
@@ -224,10 +228,10 @@ namespace GitRead.Net
         /// the last commit yielded is the original commit created in the repository.
         /// This method implements a topological sorting which ensures that the the parent of a commit 'x' will never be before 'x'.
         /// </summary>
-        public IEnumerable<Commit> GetCommits()
+        public async Task<IEnumerable<Commit>> GetCommits()
         {
-            string head = repositoryReader.ReadHead();
-            string commitHash = repositoryReader.ReadBranch(head);
+            string head = await repositoryReader.ReadHead();
+            string commitHash = await repositoryReader.ReadBranch(head);
             return GetCommits(commitHash);
         }
 
@@ -305,13 +309,13 @@ namespace GitRead.Net
             return entries;
         }
 
-        private int GetLineCount(string hash, TreeEntryMode mode)
+        private async Task<int> GetLineCount(string hash, TreeEntryMode mode)
         {
             if (mode == TreeEntryMode.RegularExecutableFile)
             {
                 return 0;
             }
-            string content = repositoryReader.ReadBlob(hash);
+            string content = await repositoryReader.ReadBlob(hash);
             return content.Length == 0 ? 0 : content.Count(c => c == '\n') + 1;
         }
 

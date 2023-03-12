@@ -5,6 +5,7 @@ using GitRead.Net.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace GitRead.Net
 {
@@ -21,24 +22,24 @@ namespace GitRead.Net
             indexReader = new PackIndexReader(this.repoPath);
         }
 
-        public string ReadHead()
+        public async Task<string> ReadHead()
         {
-            string[] lines = File.ReadAllLines(Path.Combine(repoPath, "HEAD"));            
+            string[] lines = await File.ReadAllLinesAsync(Path.Combine(repoPath, "HEAD"));            
             return lines[0].Split('/').Last();
         }
 
-        public string ReadBranch(string branchName)
+        public async Task<string> ReadBranch(string branchName)
         {
             string refFilePath = Path.Combine(repoPath, "refs", "heads", branchName);
             if (File.Exists(refFilePath))
             {
-                string[] lines = File.ReadAllLines(refFilePath);
+                string[] lines = await File.ReadAllLinesAsync(refFilePath);
                 return lines[0];
             }
             string packedRefsFilePath = Path.Combine(repoPath, "packed-refs");
             if (File.Exists(packedRefsFilePath))
             {
-                return File.ReadAllLines(packedRefsFilePath)
+                return (await File.ReadAllLinesAsync(packedRefsFilePath))
                     .Where(x => !x.StartsWith("#"))
                     .Select(x => x.Split(' '))
                     .Where(x => x[1].EndsWith(branchName))
@@ -47,11 +48,11 @@ namespace GitRead.Net
             throw new Exception($"Could not find file {refFilePath} or file {packedRefsFilePath}");
         }
 
-        internal string ReadBlob(string hash)
+        internal Task<string> ReadBlob(string hash)
         {
             if (!File.Exists(GetObjectFilePath(hash)))
             {
-                return ReadObjectFromPack(hash, (Stream s, long _, bool useZlib) => ReadBlobFromStream(s, useZlib));
+                return Task.FromResult(ReadObjectFromPack(hash, (Stream s, long _, bool useZlib) => ReadBlobFromStream(s, useZlib)));
             }
             using (FileStream fileStream = File.OpenRead(GetObjectFilePath(hash)))
             using (DeflateStream deflateStream = GetDeflateStreamForZlibData(fileStream))
@@ -72,8 +73,7 @@ namespace GitRead.Net
                 {
                     gitFileSize.Append((char)ch);
                 }
-                string value = reader.ReadToEnd();
-                return value;
+                return reader.ReadToEndAsync();
             }
         }
 

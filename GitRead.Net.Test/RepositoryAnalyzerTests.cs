@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using GitRead.Net.Data;
 using Xunit;
 
@@ -9,20 +10,20 @@ namespace GitRead.Net.Test
     public class RepositoryAnalyzerTests
     {
         [Fact]
-        public void TestCountCommits()
+        public async Task TestCountCommits()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            int count = repositoryAnalyzer.GetTotalNumberOfCommits();
+            int count = await repositoryAnalyzer.GetTotalNumberOfCommits();
             Assert.Equal(157, count);
         }
 
         [Fact]
-        public void TestGetCommits()
+        public async Task TestGetCommits()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            List<string> commits = repositoryAnalyzer.GetCommits().Select(x => x.Hash).ToList();
+            List<string> commits = (await repositoryAnalyzer.GetCommits()).Select(x => x.Hash).ToList();
             Assert.True(commits.IndexOf("f985e74e689d6857daca1141564dfbc6fd658b08")< commits.IndexOf("460058747f22757b61b8a4f5ad6beb1c2043eef4")); //4600 is a parent of f985
             Assert.True(commits.IndexOf("380631f0cc7dcc56fdd4af27d77cb0df01c1478c")< commits.IndexOf("460058747f22757b61b8a4f5ad6beb1c2043eef4")); //4600 is a parent of 3806
             Assert.True(commits.IndexOf("fc7e0f6d81c71944d68cd798bf1d85c9decbc59f")< commits.IndexOf("460058747f22757b61b8a4f5ad6beb1c2043eef4")); //4600 is a parent of fc7e
@@ -33,11 +34,11 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void TestGetFilePathsHead()
+        public async Task TestGetFilePathsHead()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            List<string> filePaths = repositoryAnalyzer.GetFilePaths().ToList();
+            List<string> filePaths = (await repositoryAnalyzer.GetFilePaths()).ToList();
             Assert.Equal(152, filePaths.Count);
             Assert.Contains(".gitattributes", filePaths);
             Assert.Contains(@"meetings\README.md", filePaths);
@@ -60,11 +61,11 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void TestGetChangesByCommitOneParentFilesAdded()
+        public async Task  TestGetChangesByCommitOneParentFilesAdded()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            CommitDelta changes = repositoryAnalyzer.GetChanges("7981ea1fb4d89571fd41e3b75f7c9f7fc178e837");
+            CommitDelta changes = await repositoryAnalyzer.GetChanges("7981ea1fb4d89571fd41e3b75f7c9f7fc178e837");
             Assert.Equal(2, changes.Added.Count);
             Assert.Equal(0, changes.Deleted.Count);
             Assert.Equal(0, changes.Modified.Count);
@@ -77,11 +78,11 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void TestGetChangesByCommitOneParentFilesModified()
+        public async Task TestGetChangesByCommitOneParentFilesModified()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            CommitDelta changes = repositoryAnalyzer.GetChanges("a5f82604eab5826bd1913cf63c7dfb8c2b187641");
+            CommitDelta changes = await repositoryAnalyzer.GetChanges("a5f82604eab5826bd1913cf63c7dfb8c2b187641");
             Assert.Equal(0, changes.Added.Count);
             Assert.Equal(0, changes.Deleted.Count);
             Assert.Equal(2, changes.Modified.Count);
@@ -94,22 +95,22 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void TestGetChangesByCommitTwoParentsNoChange()
+        public async Task TestGetChangesByCommitTwoParentsNoChange()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            CommitDelta changes = repositoryAnalyzer.GetChanges("dfb46ac110aacfade7a4a9491b272e6e8ffc4468");
+            CommitDelta changes = await repositoryAnalyzer.GetChanges("dfb46ac110aacfade7a4a9491b272e6e8ffc4468");
             Assert.Equal(0, changes.Added.Count);
             Assert.Equal(0, changes.Deleted.Count);
             Assert.Equal(0, changes.Modified.Count);
         }
         
         [Fact]
-        public void TestGetChangesByCommitTwoParentsWithChange()
+        public async Task  TestGetChangesByCommitTwoParentsWithChange()
         {
             string repoDir = TestUtils.ExtractZippedRepo("vcpkg.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            CommitDelta changes = repositoryAnalyzer.GetChanges("dbab03a1a82913ae96bfa3c1613ade20b5ac438d");
+            CommitDelta changes = await repositoryAnalyzer.GetChanges("dbab03a1a82913ae96bfa3c1613ade20b5ac438d");
             Assert.Equal(0, changes.Added.Count);
             Assert.Equal(0, changes.Deleted.Count);
             Assert.Equal(1, changes.Modified.Count);
@@ -120,11 +121,11 @@ namespace GitRead.Net.Test
 
 
         [Fact]
-        public void TestGetChangesNewlineAddedToEndOfFile()
+        public async Task  TestGetChangesNewlineAddedToEndOfFile()
         {
             string repoDir = TestUtils.ExtractZippedRepo("html-generator.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            CommitDelta changes = repositoryAnalyzer.GetChanges("54a1f0028d595e73ea3151459cb7f9e58ec46b0b");
+            CommitDelta changes = await repositoryAnalyzer.GetChanges("54a1f0028d595e73ea3151459cb7f9e58ec46b0b");
             FileChange portfileChanges = changes.Modified.Where(x => x.Path == @"src\src\HtmlGenerator\Tag.cs").First();
             Assert.Equal(1, portfileChanges.NumberOfLinesDeleted);
             Assert.Equal(2, portfileChanges.NumberOfLinesAdded);
@@ -132,11 +133,19 @@ namespace GitRead.Net.Test
 
 
         [Fact]
-        public void TestGetFileLineCounts()
+        public async Task  TestGetFileLineCounts()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            Dictionary<string, int> lineCounts = repositoryAnalyzer.GetFileLineCounts("7981ea1fb4d89571fd41e3b75f7c9f7fc178e837").ToDictionary(x => x.FilePath, x => x.LineCount);
+
+            List<FileLineCount> fileLineCounts = new List<FileLineCount>();
+            await foreach (var x in repositoryAnalyzer.GetFileLineCounts("7981ea1fb4d89571fd41e3b75f7c9f7fc178e837"))
+            {
+                fileLineCounts.Add(x);
+            }
+
+
+            Dictionary<string, int> lineCounts = (fileLineCounts.ToDictionary(x => x.FilePath, x => x.LineCount));
             Assert.Equal(6, lineCounts.Count);
             Assert.Equal(10, lineCounts.GetValueOrDefault(@"README.md", -1));
             Assert.Equal(0, lineCounts.GetValueOrDefault(@"proposals\async-streams.md",-1));
@@ -147,22 +156,22 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void TestGetCommitsForPath()
+        public async Task  TestGetCommitsForPath()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            IReadOnlyList<Commit> commits = repositoryAnalyzer.GetCommitsForOneFilePath(@"proposals\lambda-attributes.md");
+            IReadOnlyList<Commit> commits = await repositoryAnalyzer.GetCommitsForOneFilePath(@"proposals\lambda-attributes.md");
             Assert.Equal(2, commits.Count);
             Assert.Equal("24b2ac25986949e39fbb258b39c38c5f134afa74", commits[0].Hash);
             Assert.Equal("2531e639b6cc3cce1d632daf350f5e49cd000c62", commits[1].Hash);
         }
         
         [Fact]
-        public void TestGetCommitsForAllFilePaths()
+        public async Task  TestGetCommitsForAllFilePaths()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
-            IReadOnlyDictionary<string, IReadOnlyList<Commit>> result = repositoryAnalyzer.GetCommitsForAllFilePaths();
+            IReadOnlyDictionary<string, IReadOnlyList<Commit>> result = await repositoryAnalyzer.GetCommitsForAllFilePaths();
             Assert.Equal(152, result.Count);
             Assert.Equal(1, result[@"spec\LICENSE.md"].Count);
             Assert.Equal("6027ad5a4ab013f4fb42f5edd2d667d649fe1bd8", result[@"spec\LICENSE.md"][0].Hash);

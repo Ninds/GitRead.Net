@@ -1,6 +1,7 @@
 ﻿using GitRead.Net.Data;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace GitRead.Net.Test
@@ -9,20 +10,20 @@ namespace GitRead.Net.Test
     public class RepositoryReaderTests
     {
         [Fact]
-        public void Test01ReadLooseBlob()
+        public async Task  Test01ReadLooseBlob()
         {
             string repoDir = TestUtils.ExtractZippedRepo("TestRepo01");
             RepositoryReader reader = new RepositoryReader(repoDir);
-            string res = reader.ReadBlob("d670460b4b4aece5915caf5c68d12f560a9fe3e4");
+            string res = await reader.ReadBlob("d670460b4b4aece5915caf5c68d12f560a9fe3e4");
             Assert.Equal("test content\n", res);
         }
 
         [Fact]
-        public void Test02ReadCommit()
+        public async Task  Test02ReadCommit()
         {
             string repoDir = TestUtils.ExtractZippedRepo("TestRepo02");
             RepositoryReader reader = new RepositoryReader(repoDir);
-            string hash = reader.ReadBranch("master");
+            string hash = await reader.ReadBranch("master");
             Commit commit = reader.ReadCommit(hash);
             Assert.Equal("ce2d3a85f185830a19e84d404155bf9847ede8b8", commit.Tree,true);
         }
@@ -40,20 +41,20 @@ namespace GitRead.Net.Test
         }
 
         [Fact]
-        public void Test02ReadLooseBlob()
+        public async Task  Test02ReadLooseBlob()
         {
             string repoDir = TestUtils.ExtractZippedRepo("TestRepo02");
             RepositoryReader reader = new RepositoryReader(repoDir);
-            string res = reader.ReadBlob("31d6d2184fe8deab8e52bd9581d67f35d4ecd5ca");
+            string res = await reader.ReadBlob("31d6d2184fe8deab8e52bd9581d67f35d4ecd5ca");
             Assert.Equal("abc xyz", res);
         }
 
         [Fact]
-        public void TestCsharplangReadPackedRef()
+        public async Task TestCsharplangReadPackedRef()
         {
             string repoDir = TestUtils.ExtractZippedRepo("csharplang.git");
             RepositoryReader reader = new RepositoryReader(repoDir);
-            string res = reader.ReadBranch("master");
+            string res = await reader.ReadBranch("master");
             Assert.Equal("411106b0108a37789ed3d53fd781acf8f75ef97b", res);
         }
 

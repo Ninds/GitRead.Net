@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using GitRead.Net.Data;
 using Xunit;
 using static GitRead.Net.RepositoryAnalyzer;
@@ -11,10 +12,10 @@ namespace GitRead.Net.Test
     public class DiffPerformanceTest
     {
         [Fact]
-        public void PerformanceTest()
+        public async Task PerformanceTest()
         {
             int comparisons = 600;
-            Prepare(comparisons, out string[] content1, out string[] content2);
+            var (content1,content2) = await Prepare(comparisons);
             int repeatCount = 25;
             double total = 0;
             foreach (int repeat in Enumerable.Range(0, repeatCount))
@@ -32,15 +33,16 @@ namespace GitRead.Net.Test
             //TestContext.Progress.WriteLine($"Average {total / repeatCount}ms");
         }
 
-        private void Prepare(int comparisons, out string[] content1, out string[] content2)
+        private async Task<(string[], string[])> Prepare(int comparisons)
         {
             string repoDir = TestUtils.ExtractZippedRepo("vcpkg.git");
             RepositoryAnalyzer repositoryAnalyzer = new RepositoryAnalyzer(repoDir);
             RepositoryReader repositoryReader = new RepositoryReader(repoDir);
-            content1 = new string[comparisons];
-            content2 = new string[comparisons];
+            var content1 = new string[comparisons];
+            var content2 = new string[comparisons];
             int i = 0;
-            foreach (Commit commit in repositoryAnalyzer.GetCommits().Where(x => x.Parents.Any()))
+            var commits = await repositoryAnalyzer.GetCommits();
+            foreach (Commit commit in commits.Where(x => x.Parents.Any()))
             {
                 Dictionary<string, PathHashMode> current = repositoryAnalyzer.GetPathAndHashForFiles(commit.Hash).ToDictionary(x => x.Path);
                 Dictionary<string, PathHashMode> parent = repositoryAnalyzer.GetPathAndHashForFiles(commit.Parents[0]).ToDictionary(x => x.Path);
@@ -48,8 +50,8 @@ namespace GitRead.Net.Test
                 {
                     if (hash1 != hash2)
                     {
-                        content1[i] = repositoryReader.ReadBlob(hash1);
-                        content2[i] = repositoryReader.ReadBlob(hash2);
+                        content1[i] = await repositoryReader.ReadBlob(hash1);
+                        content2[i] = await repositoryReader.ReadBlob(hash2);
                         i++;
                     }
                     if (i == comparisons)
@@ -62,6 +64,7 @@ namespace GitRead.Net.Test
                     break;
                 }
             }
+            return (content1, content2);
         }
     }
 }
